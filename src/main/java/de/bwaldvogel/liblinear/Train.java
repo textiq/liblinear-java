@@ -25,8 +25,6 @@ public class Train {
         new Train().run(args);
     }
 
-    Class clazz = ArrayList.class;
-
     private double    bias             = 1;
     private boolean   find_parameters  = false;
     private boolean   C_specified      = false;
@@ -51,7 +49,7 @@ public class Train {
             start_p = -1.0;
 
         System.out.printf("Doing parameter search with %d-fold cross validation.%n", nr_fold);
-        ParameterSearchResult result = Linear.findParameters(clazz, prob, param, nr_fold, start_C, start_p);
+        ParameterSearchResult result = Linear.findParameters(prob, param, nr_fold, start_C, start_p);
         if (param.getSolverType() == L2R_LR || param.getSolverType() == L2R_L2LOSS_SVC)
             System.out.printf("Best C = %g  CV accuracy = %g%%\n", result.getBestC(), 100.0 * result.getBestScore());
         else if (param.getSolverType() == L2R_L2LOSS_SVR)
@@ -290,10 +288,10 @@ public class Train {
      * @throws InvalidInputDataException if the input file is not correctly formatted
      * @deprecated use {@link Train#readProblem(Path, double)} instead
      */
-    public static Problem readProblem(Class<? extends ArrayList<FeatureVector>> clazz,
+    public static Problem readProblem(ListFactory listFactory,
                                       File file, double bias)
           throws IOException, InvalidInputDataException, InstantiationException, IllegalAccessException {
-        return readProblem(clazz, file.toPath(), bias);
+        return readProblem(listFactory, file.toPath(), bias);
     }
 
     /**
@@ -301,41 +299,41 @@ public class Train {
      * @throws IOException obviously in case of any I/O exception ;)
      * @throws InvalidInputDataException if the input file is not correctly formatted
      */
-    public static Problem<? extends ArrayList<FeatureVector>> readProblem(Class<? extends ArrayList<FeatureVector>> clazz,
+    public static Problem<? extends ListFactory> readProblem(ListFactory listFactory,
                                       Path path, double bias)
           throws IOException, InvalidInputDataException, IllegalAccessException, InstantiationException {
         try (InputStream inputStream = Files.newInputStream(path)) {
-            return readProblem(clazz,inputStream, bias);
+            return readProblem(listFactory,inputStream, bias);
         }
     }
 
     /**
      * @deprecated use {@link Train#readProblem(Path, Charset, double)} instead
      */
-    public static Problem<? extends ArrayList<FeatureVector>> readProblem(Class<? extends ArrayList<FeatureVector>> clazz,
+    public static Problem<? extends ListFactory> readProblem(ListFactory listFactory,
                                       File file, Charset charset,
                                       double bias)
           throws IOException, InvalidInputDataException, IllegalAccessException, InstantiationException {
-        return readProblem(clazz, file.toPath(), charset, bias);
+        return readProblem(listFactory, file.toPath(), charset, bias);
     }
 
-    public static Problem<? extends ArrayList<FeatureVector>> readProblem(Class<? extends ArrayList<FeatureVector>> clazz,
+    public static Problem<? extends ListFactory> readProblem(ListFactory listFactory,
                                       Path path, Charset charset,
                                       double bias)
           throws IOException, InvalidInputDataException, InstantiationException, IllegalAccessException {
         try (InputStream inputStream = Files.newInputStream(path)) {
-            return readProblem(clazz, inputStream, charset, bias);
+            return readProblem(listFactory, inputStream, charset, bias);
         }
     }
 
-    public static Problem<? extends ArrayList<FeatureVector>> readProblem(Class<? extends ArrayList<FeatureVector>> clazz,
+    public static Problem<? extends ListFactory> readProblem(ListFactory listFactory,
                                       InputStream inputStream,
                                       double bias)
           throws IOException, InvalidInputDataException, InstantiationException, IllegalAccessException {
-        return readProblem(clazz, inputStream, Charset.defaultCharset(), bias);
+        return readProblem(listFactory, inputStream, Charset.defaultCharset(), bias);
     }
 
-    public static Problem<? extends ArrayList<FeatureVector>> readProblem(Class<? extends ArrayList<FeatureVector>> clazz,
+    public static Problem<? extends ListFactory> readProblem(ListFactory listFactory,
                                       InputStream inputStream,
                                       Charset charset, double bias)
           throws IOException, InvalidInputDataException, IllegalAccessException, InstantiationException {
@@ -406,22 +404,22 @@ public class Train {
             vx.add(x);
         }
 
-        return constructProblem(clazz, vy, vx, max_index, bias);
+        return constructProblem(listFactory, vy, vx, max_index, bias);
     }
 
-    public void readProblem(Class<? extends ArrayList<FeatureVector>> clazz, Path path) throws IOException,
+    public void readProblem(ListFactory listFactory, Path path) throws IOException,
           InvalidInputDataException, InstantiationException, IllegalAccessException {
-        prob = Train.readProblem(clazz, path, bias);
+        prob = Train.readProblem(listFactory, path, bias);
     }
 
-    public void readProblem(Class<? extends ArrayList<FeatureVector>> clazz, String filename) throws IOException,
+    public void readProblem(ListFactory listFactory, String filename) throws IOException,
           InvalidInputDataException, IllegalAccessException, InstantiationException {
-        readProblem(clazz, filename, bias);
+        readProblem(listFactory, filename, bias);
     }
 
-    public void readProblem(Class<? extends ArrayList<FeatureVector>> clazz, String filename, double bias)
+    public void readProblem(ListFactory listFactory, String filename, double bias)
           throws IOException, InvalidInputDataException, InstantiationException, IllegalAccessException {
-        prob = Train.readProblem(clazz, Paths.get(filename), bias);
+        prob = Train.readProblem(listFactory, Paths.get(filename), bias);
     }
 
     private static int[] addToArray(int[] array, int newElement) {
@@ -444,11 +442,11 @@ public class Train {
         return newArray;
     }
 
-    private static Problem<? extends ArrayList<FeatureVector>> constructProblem(Class<? extends ArrayList<FeatureVector>> clazz,
+    private static Problem<? extends ListFactory> constructProblem(ListFactory listFactory,
                                             List<Double> vy,
                                             List<Feature[]> vx, int max_index, double bias)
           throws InstantiationException, IllegalAccessException {
-        Problem<? extends ArrayList<FeatureVector>> prob = new Problem<>(clazz, vy.size());
+        Problem<? extends ListFactory> prob = new Problem(listFactory, vy.size());
         prob.bias = bias;
         prob.n = max_index;
         prob.setL(vy.size());
@@ -474,8 +472,8 @@ public class Train {
     private void run(String[] args)
           throws IOException, InvalidInputDataException, InstantiationException, IllegalAccessException {
         parse_command_line(args);
-        Class clazz = ArrayList.class;
-        readProblem(clazz, inputFilename);
+        MemoryListFactory listFactory = new MemoryListFactory();
+        readProblem(listFactory, inputFilename);
         if (find_parameters) {
             do_find_parameters();
         } else if (cross_validation)

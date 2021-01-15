@@ -32,13 +32,11 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @Measurement(iterations = 5, time = 3, timeUnit = TimeUnit.SECONDS)
 public class LinearBenchmark {
 
-    private static Class clazz = ArrayList.class;
-
     @Benchmark
     public void readProblem(DatasetParameters datasetParameters) throws Exception {
         Path trainingFile = getTrainingFile(datasetParameters.dataset);
         try (InputStream inputStream = getInputStream(trainingFile)) {
-            Train.readProblem(clazz, inputStream, -1);
+            Train.readProblem(new MemoryListFactory(), inputStream, -1);
         }
     }
 
@@ -68,7 +66,7 @@ public class LinearBenchmark {
         public void loadDataset() throws Exception {
             Path trainingFile = getTrainingFile(dataset);
             try (InputStream inputStream = getInputStream(trainingFile)) {
-                problem = Train.readProblem(clazz, inputStream, -1);
+                problem = Train.readProblem(new MemoryListFactory(), inputStream, -1);
             }
         }
 

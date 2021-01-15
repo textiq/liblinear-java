@@ -36,126 +36,141 @@ import java.util.Iterator;
  *       [ ] -&gt; (1,-0.1) (2,-0.2) (3,0.1) (4,1.1) (5,0.1) (6,1) (-1,?)
  * </pre>
  */
-public class Problem<T extends ArrayList<FeatureVector>> {
+public class Problem<T extends ListFactory> implements AutoCloseable {
 
-    /** the number of training data */
+    /**
+     * the number of training data
+     */
     private int l;
 
-    /** the number of features (including the bias feature if bias &gt;= 0) */
+    /**
+     * the number of features (including the bias feature if bias &gt;= 0)
+     */
     public int n;
 
     private int size;
 
-    /** an array containing the target values */
+    /**
+     * an array containing the target values
+     */
     public double[] y;
 
-    /** array of sparse feature nodes */
-    public T x;
+    /**
+     * array of sparse feature nodes
+     */
+    public ArrayList<FeatureVector> x;
 
-    public Class<T> getClazz() {
-        return clazz;
-    }
+    private T listFactory;
 
-    public Class<T> clazz;
-
-    public Problem(Class<T> listclazz, int size) throws IllegalAccessException, InstantiationException {
-        x = listclazz.newInstance();
-        for (int i =0;i<size;i++){
+    public Problem(T listFactory, int size) {
+        this.listFactory = listFactory;
+        x = listFactory.createList(size);
+        for (int i = 0; i < size; i++) {
             x.add(null);
         }
-        this.clazz =listclazz;
         this.size = size;
     }
 
-    public void reinitX(int size) throws IllegalAccessException, InstantiationException {
-        x = clazz.newInstance();
-        for (int i =0;i<size;i++){
+    public void reinitX(int size) {
+        x = listFactory.createList(size);
+        for (int i = 0; i < size; i++) {
             x.add(null);
         }
     }
 
-    public void setL(int l){
+    public void setL(int l) {
         this.l = l;
     }
-    public int getL(){
+
+    public int getL() {
         return l;
     }
 
-    public int getSize(){
+    public ListFactory getListFactory() {
+        return listFactory;
+    }
+
+    public int getSize() {
         return size;
     }
-    public void setX(int index, Feature[] features){
+
+    public void setX(int index, Feature[] features) {
         x.set(index, new FeatureVector(features));
     }
 
-    public Feature[] getX(int index){
+    public Feature[] getX(int index) {
         return x.get(index).getFeatures();
     }
 
-    public Iterator<FeatureVector> getXIterator(){
+    public Iterator<FeatureVector> getXIterator() {
         return x.iterator();
     }
+
     /**
-     * If bias &gt;= 0, we assume that one additional feature is added
-     * to the end of each data instance
+     * If bias &gt;= 0, we assume that one additional feature is added to the end of each data instance
      */
     public double bias = -1;
 
     /**
      * @deprecated use {@link Problem#readFromFile(Path, double)} instead
      */
-    public static Problem readFromFile(Class<? extends ArrayList<FeatureVector>> clazz,
+    public static Problem readFromFile(ListFactory listFactory,
                                        File file, double bias) throws IOException,
           InvalidInputDataException, IllegalAccessException, InstantiationException {
-        return readFromFile(clazz, file.toPath(), bias);
+        return readFromFile(listFactory, file.toPath(), bias);
     }
 
     /**
      * see {@link Train#readProblem(Path, double)}
      */
-    public static Problem readFromFile(Class<? extends ArrayList<FeatureVector>> clazz,
+    public static Problem readFromFile(ListFactory listFactory,
                                        Path path, double bias)
           throws IOException, InvalidInputDataException, InstantiationException, IllegalAccessException {
-        return Train.readProblem(clazz, path, bias);
+        return Train.readProblem(listFactory, path, bias);
     }
 
     /**
      * @deprecated use {@link Problem#readFromFile(Path, Charset, double)} instead
      */
-    public static Problem readFromFile(Class<? extends ArrayList<FeatureVector>> clazz,
+    public static Problem readFromFile(ListFactory listFactory,
                                        File file, Charset charset,
                                        double bias)
           throws IOException, InvalidInputDataException, InstantiationException, IllegalAccessException {
-        return readFromFile(clazz, file.toPath(), charset, bias);
+        return readFromFile(listFactory, file.toPath(), charset, bias);
     }
 
     /**
      * see {@link Train#readProblem(Path, Charset, double)}
      */
-    public static Problem readFromFile(Class<? extends ArrayList<FeatureVector>> clazz,
+    public static Problem readFromFile(ListFactory listFactory,
                                        Path path, Charset charset,
                                        double bias)
           throws IOException, InvalidInputDataException, IllegalAccessException, InstantiationException {
-        return Train.readProblem(clazz, path, charset, bias);
+        return Train.readProblem(listFactory, path, charset, bias);
     }
 
     /**
      * see {@link Train#readProblem(InputStream, double)}
      */
-    public static Problem readFromStream(Class<? extends ArrayList<FeatureVector>> clazz,
+    public static Problem readFromStream(ListFactory listFactory,
                                          InputStream inputStream,
                                          double bias)
           throws IOException, InvalidInputDataException, IllegalAccessException, InstantiationException {
-        return Train.readProblem(clazz, inputStream, bias);
+        return Train.readProblem(listFactory, inputStream, bias);
     }
 
     /**
      * see {@link Train#readProblem(InputStream, Charset, double)}
      */
-    public static Problem readFromStream(Class<? extends ArrayList<FeatureVector>> clazz,
+    public static Problem readFromStream(ListFactory listFactory,
                                          InputStream inputStream,
                                          Charset charset, double bias)
           throws IOException, InvalidInputDataException, InstantiationException, IllegalAccessException {
-        return Train.readProblem(clazz, inputStream, charset, bias);
+        return Train.readProblem(listFactory, inputStream, charset, bias);
+    }
+
+    @Override
+    public void close() throws Exception {
+        listFactory.close();
     }
 }

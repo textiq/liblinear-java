@@ -1,9 +1,11 @@
 package de.bwaldvogel.liblinear;
 
+import java.io.Serializable;
+
 /**
  * @since 1.9
  */
-public interface Feature {
+public interface Feature extends Serializable {
 
     int getIndex();
 

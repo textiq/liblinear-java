@@ -28,7 +28,6 @@ import org.slf4j.LoggerFactory;
 
 
 class RegressionTest {
-    private static Class clazz = ArrayList.class;
     private static final Logger log = LoggerFactory.getLogger(RegressionTest.class);
 
     protected static final List<SolverType> SOLVERS = Stream.of(SolverType.values())
@@ -213,12 +212,12 @@ class RegressionTest {
         log.info("Running regression test for '{}'", params);
         Linear.resetRandom();
         Path trainingFile = Paths.get("src/test/datasets", params.dataset, params.dataset);
-        Problem problem = Train.readProblem(clazz, trainingFile, params.bias);
+        Problem problem = Train.readProblem(new MemoryListFactory(), trainingFile, params.bias);
         Parameter parameter = new Parameter(params.solverType, 1, 0.1);
         parameter.setRegularizeBias(params.regularizeBias);
         Model model = Linear.train(problem, parameter);
         Path testFile = Paths.get("src/test/datasets", params.dataset, params.dataset + ".t");
-        Problem testProblem = Train.readProblem(clazz, testFile, params.bias);
+        Problem testProblem = Train.readProblem(new MemoryListFactory(), testFile, params.bias);
 
         String filename = "predictions_" + params.solverType.name();
         if (!params.regularizeBias) {
@@ -310,7 +309,7 @@ class RegressionTest {
             Files.write(targetFile, Arrays.asList(line), StandardCharsets.UTF_8, StandardOpenOption.APPEND, StandardOpenOption.CREATE);
         }
 
-        Problem problem1 = Train.readProblem(clazz, spliceClass1, StandardCharsets.UTF_8, -1);
+        Problem problem1 = Train.readProblem(new MemoryListFactory(), spliceClass1, StandardCharsets.UTF_8, -1);
         Parameter param = new Parameter(ONECLASS_SVM, 1, 0.01);
         param.setNu(0.1);
         Model model = Linear.train(problem1, param);
@@ -318,7 +317,7 @@ class RegressionTest {
         Model expectedModel = Model.load(Paths.get("src/test/resources/regression/splice/one_class_model"));
         assertThat(expectedModel).isEqualTo(model);
 
-        Problem problem2 = Train.readProblem(clazz, spliceClass2, StandardCharsets.UTF_8, -1);
+        Problem problem2 = Train.readProblem(new MemoryListFactory(), spliceClass2, StandardCharsets.UTF_8, -1);
 
         // expected values determined with C-version of liblinear (v2.41)
         assertThat(calculatePredictionAccuracy(model, problem1)).isEqualTo(0.897485, Offset.strictOffset(1e-6));
@@ -326,7 +325,7 @@ class RegressionTest {
     }
 
     private static double calculatePredictionAccuracy(Model model,
-                                                      Problem<? extends ArrayList<FeatureVector>> problem) {
+                                                      Problem<? extends ListFactory> problem) {
         AtomicInteger correct = new AtomicInteger(0);
         problem.getXIterator().forEachRemaining(vector->{
             double prediction = Linear.predict(model, vector.getFeatures());

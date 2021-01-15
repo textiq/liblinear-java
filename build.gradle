@@ -155,6 +155,9 @@ dependencies {
     jmh group: 'org.apache.commons', name: 'commons-compress', version: 'latest.release'
     jmh 'org.openjdk.jmh:jmh-generator-annprocess:latest.release' // for IntelliJ
 
+    // https://mvnrepository.com/artifact/org.mapdb/mapdb
+    compile group: 'org.mapdb', name: 'mapdb', version: '3.0.8'
+
     components.all { ComponentMetadataDetails details ->
         details.statusScheme = ['candidate', 'release']
         if (details.id.version =~ /(?i).+([-.])(CANDIDATE|RC|BETA|ALPHA).*/) {
@@ -163,8 +166,4 @@ dependencies {
             details.status = 'release'
         }
     }
-}
-
-dependencyLocking {
-    lockAllConfigurations()
 }

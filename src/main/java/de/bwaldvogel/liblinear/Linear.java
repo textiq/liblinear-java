@@ -77,7 +77,7 @@ public class Linear {
             int begin = fold_start[i];
             int end = fold_start[i + 1];
             int j, k;
-            Problem subprob = new Problem(prob.getClazz(), prob.getSize());
+            Problem subprob = new Problem(prob.getListFactory(), prob.getSize());
 
             subprob.bias = prob.bias;
             subprob.n = prob.n;
@@ -102,8 +102,7 @@ public class Linear {
         }
     }
 
-    public static ParameterSearchResult findParameters(Class<? extends ArrayList<FeatureVector>> clazz,
-                                                       Problem<?extends ArrayList<FeatureVector>> prob,
+    public static ParameterSearchResult findParameters(Problem<? extends ListFactory> prob,
                                                        Parameter param, int nr_fold, double start_C, double start_p)
           throws InstantiationException, IllegalAccessException {
         double best_C = Double.NaN;
@@ -134,7 +133,7 @@ public class Linear {
             int j, k;
 
             assert subprob[i] == null;
-            subprob[i] = new Problem<>(clazz, l - (end - begin));
+            subprob[i] = new Problem<>(prob.getListFactory(), l - (end - begin));
             subprob[i].bias = prob.bias;
             subprob[i].n = prob.n;
             subprob[i].setL(l - (end - begin));
@@ -1994,7 +1993,7 @@ public class Linear {
         int l = prob.getL();
         int n = prob.n;
         int[] col_ptr = new int[n + 1];
-        Problem prob_col = new Problem(prob.getClazz(),n);
+        Problem prob_col = new Problem(prob.getListFactory(),n);
        // prob_col.l = l;
         prob_col.n = n;
         prob_col.y = new double[l];
@@ -2056,7 +2055,7 @@ public class Linear {
     /**
      * @throws IllegalArgumentException if the feature nodes of prob are not sorted in ascending order
      */
-    public static Model train(Problem<? extends ArrayList<FeatureVector>> prob, Parameter param)
+    public static Model train(Problem<? extends ListFactory> prob, Parameter param)
           throws InstantiationException, IllegalAccessException {
         if (prob == null) {
             throw new IllegalArgumentException("problem must not be null");
@@ -2187,7 +2186,7 @@ public class Linear {
             for ( i = 0; i < l; i++)
                 x[i] = prob.getX(perm[i]);
 
-            Problem<? extends ArrayList<FeatureVector>> sub_prob = new Problem<>(prob.getClazz(), prob.getSize());
+            Problem<? extends ListFactory> sub_prob = new Problem<>(prob.getListFactory(), prob.getSize());
             sub_prob.n = n;
             sub_prob.setL(l);
             sub_prob.y = new double[sub_prob.getL()];
@@ -2268,7 +2267,7 @@ public class Linear {
         }
     }
 
-    private static void train_one(Problem<? extends ArrayList<FeatureVector>> prob,
+    private static void train_one(Problem<? extends ListFactory> prob,
                                   Parameter param, double[] w, double Cp, double Cn)
           throws IllegalAccessException, InstantiationException {
         SolverType solver_type = param.solverType;
@@ -2327,12 +2326,12 @@ public class Linear {
                 break;
             }
             case L1R_L2LOSS_SVC: {
-                Problem<? extends ArrayList<FeatureVector>> prob_col = transpose(prob);
+                Problem<? extends ListFactory> prob_col = transpose(prob);
                 solve_l1r_l2_svc(prob_col, param, w, Cp, Cn, primal_solver_tol, param.max_iters);
                 break;
             }
             case L1R_LR: {
-                Problem<? extends ArrayList<FeatureVector>> prob_col = transpose(prob);
+                Problem<? extends ListFactory> prob_col = transpose(prob);
                 solve_l1r_lr(prob_col, param, w, Cp, Cn, primal_solver_tol, param.max_iters);
                 break;
             }
@@ -2424,7 +2423,7 @@ public class Linear {
         return max_p;
     }
 
-    public static ParameterCSearchResult find_parameter_C(Problem<? extends ArrayList<FeatureVector>> prob,
+    public static ParameterCSearchResult find_parameter_C(Problem<? extends ListFactory> prob,
                                                           Parameter param_tmp, double start_C, double max_C, int[] fold_start, int[] perm,
         Problem[] subprob, int nr_fold) throws IllegalAccessException, InstantiationException {
         double best_C;

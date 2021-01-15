@@ -1,9 +1,23 @@
 package de.bwaldvogel.liblinear;
 
-import static de.bwaldvogel.liblinear.SolverType.*;
-import static de.bwaldvogel.liblinear.TestUtils.*;
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static de.bwaldvogel.liblinear.SolverType.L1R_L2LOSS_SVC;
+import static de.bwaldvogel.liblinear.SolverType.L1R_LR;
+import static de.bwaldvogel.liblinear.SolverType.L2R_L1LOSS_SVC_DUAL;
+import static de.bwaldvogel.liblinear.SolverType.L2R_L1LOSS_SVR_DUAL;
+import static de.bwaldvogel.liblinear.SolverType.L2R_L2LOSS_SVC;
+import static de.bwaldvogel.liblinear.SolverType.L2R_L2LOSS_SVR;
+import static de.bwaldvogel.liblinear.SolverType.L2R_LR;
+import static de.bwaldvogel.liblinear.SolverType.MCSVM_CS;
+import static de.bwaldvogel.liblinear.SolverType.ONECLASS_SVM;
+import static de.bwaldvogel.liblinear.TestUtils.repeat;
+import static de.bwaldvogel.liblinear.TestUtils.writeToFile;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.offset;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import java.io.IOException;
 import java.io.Writer;
@@ -17,7 +31,6 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 import java.util.TreeSet;
-
 import org.assertj.core.data.Offset;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,7 +40,6 @@ import org.junit.jupiter.api.io.TempDir;
 class LinearTest {
 
     private static final Random random = new Random(12345);
-    private static Class clazz = ArrayList.class;
 
     @BeforeEach
     public void reset() throws Exception {
@@ -43,7 +55,7 @@ class LinearTest {
         Model model = new Model();
         model.solverType = solverType;
         model.bias = 2;
-        model.label = new int[] {1, Integer.MAX_VALUE, 2};
+        model.label = new int[]{1, Integer.MAX_VALUE, 2};
         model.w = new double[model.label.length * 300];
         for (int i = 0; i < model.w.length; i++) {
             // precision should be at least 1e-4
@@ -64,7 +76,7 @@ class LinearTest {
 
     private static Problem createRandomProblem(int numClasses) throws InstantiationException, IllegalAccessException {
         int problemSize = random.nextInt(100) + 1;
-        Problem prob = new Problem(clazz, problemSize);
+        Problem prob = new Problem(new MemoryListFactory(), problemSize);
         prob.bias = -1;
         prob.setL(problemSize);
         prob.n = random.nextInt(100) + 1;
@@ -95,12 +107,12 @@ class LinearTest {
      */
     @Test
     void testTrainPredict() throws InstantiationException, IllegalAccessException {
-        Problem prob = new Problem(clazz, 4);
+        Problem prob = new Problem(new MemoryListFactory(), 4);
         prob.setL(4);
         prob.bias = -1;
         prob.n = 4;
         prob.setX(0, new FeatureNode[2]);
-        prob.setX(1,new FeatureNode[1]);
+        prob.setX(1, new FeatureNode[1]);
         prob.setX(2, new FeatureNode[1]);
         prob.setX(3, new FeatureNode[3]);
 
@@ -126,12 +138,16 @@ class LinearTest {
             }
             for (double C = 0.1; C <= 100.; C *= 1.2) {
                 // compared the behavior with the C version
-                if (C < 0.2)
-                    if (solver == L1R_L2LOSS_SVC)
+                if (C < 0.2) {
+                    if (solver == L1R_L2LOSS_SVC) {
                         continue;
-                if (C < 0.7)
-                    if (solver == L1R_LR)
+                    }
+                }
+                if (C < 0.7) {
+                    if (solver == L1R_LR) {
                         continue;
+                    }
+                }
 
                 if (solver.isSupportVectorRegression()) {
                     continue;
@@ -155,7 +171,8 @@ class LinearTest {
                         double[] estimates = new double[model.getNrClass()];
                         double probabilityPrediction = Linear.predictProbability(model, prob.getX(i), estimates);
                         assertThat(probabilityPrediction).isEqualTo(prediction);
-                        assertThat(estimates[(int)probabilityPrediction]).isGreaterThanOrEqualTo(1.0 / model.getNrClass());
+                        assertThat(estimates[(int) probabilityPrediction])
+                              .isGreaterThanOrEqualTo(1.0 / model.getNrClass());
                         double estimationSum = 0;
                         for (double estimate : estimates) {
                             estimationSum += estimate;
@@ -202,11 +219,11 @@ class LinearTest {
         Path modelPath = tempDir.resolve("empty-model");
 
         List<String> lines = Arrays.asList("solver_type L2R_LR",
-            "nr_class 2",
-            "label 1 2",
-            "nr_feature 0",
-            "bias -1.0",
-            "w");
+                                           "nr_class 2",
+                                           "label 1 2",
+                                           "nr_feature 0",
+                                           "bias -1.0",
+                                           "w");
         writeToFile(modelPath, lines);
 
         Model model = Model.load(modelPath);
@@ -223,13 +240,13 @@ class LinearTest {
         Path modelPath = tempDir.resolve("simple-model");
 
         List<String> lines = Arrays.asList("solver_type L2R_L2LOSS_SVR",
-            "nr_class 2",
-            "label 1 2",
-            "nr_feature 6",
-            "bias -1.0",
-            "w",
-            "0.1 0.2 0.3 ",
-            "0.4 0.5 0.6 ");
+                                           "nr_class 2",
+                                           "label 1 2",
+                                           "nr_feature 6",
+                                           "bias -1.0",
+                                           "w",
+                                           "0.1 0.2 0.3 ",
+                                           "0.4 0.5 0.6 ");
         writeToFile(modelPath, lines);
 
         Model model = Model.load(modelPath);
@@ -246,30 +263,31 @@ class LinearTest {
         Path file = tempDir.resolve("illegal-model");
 
         List<String> lines = Arrays.asList("solver_type L2R_L2LOSS_SVR",
-            "nr_class 2",
-            "label 1 2",
-            "nr_feature 10",
-            "bias -1.0",
-            "w",
-            "0.1 0.2 0.3 ",
-            "0.4 0.5 " + repeat("0", 1024));
+                                           "nr_class 2",
+                                           "label 1 2",
+                                           "nr_feature 10",
+                                           "bias -1.0",
+                                           "w",
+                                           "0.1 0.2 0.3 ",
+                                           "0.4 0.5 " + repeat("0", 1024));
         writeToFile(file, lines);
 
         String x = repeat("0", 128);
 
         assertThatExceptionOfType(RuntimeException.class)
-            .isThrownBy(() -> Model.load(file))
-            .withMessage("illegal weight in model file at index 5, with string content '" + x
-                + "', is not terminated with a whitespace character, or is longer than expected (128 characters max).");
+              .isThrownBy(() -> Model.load(file))
+              .withMessage("illegal weight in model file at index 5, with string content '" + x
+                           + "', is not terminated with a whitespace character, or is longer than expected (128 "
+                           + "characters max).");
     }
 
     @Test
     void testTrainUnsortedProblem() throws InstantiationException, IllegalAccessException {
-        Problem prob = new Problem(clazz, 1);
+        Problem prob = new Problem(new MemoryListFactory(), 1);
         prob.setL(1);
         prob.bias = -1;
         prob.n = 2;
-        prob.setX(0,new FeatureNode[2]);
+        prob.setX(0, new FeatureNode[2]);
 
         prob.getX(0)[0] = new FeatureNode(2, 1);
         prob.getX(0)[1] = new FeatureNode(1, 1);
@@ -280,18 +298,18 @@ class LinearTest {
         Parameter param = new Parameter(L2R_LR, 10, 0.1);
 
         assertThatExceptionOfType(IllegalArgumentException.class)
-            .isThrownBy(() -> Linear.train(prob, param))
-            .withMessageContainingAll("nodes", "sorted", "ascending", "order");
+              .isThrownBy(() -> Linear.train(prob, param))
+              .withMessageContainingAll("nodes", "sorted", "ascending", "order");
     }
 
     @Test
     void testTrainTooLargeProblem() throws InstantiationException, IllegalAccessException {
-        Problem prob = new Problem(clazz, 1000);
+        Problem prob = new Problem(new MemoryListFactory(), 1000);
         prob.setL(1000);
         prob.n = 20000000;
         prob.y = new double[prob.getL()];
         for (int i = 0; i < prob.getL(); i++) {
-            prob.setX(i, new FeatureNode[] {});
+            prob.setX(i, new FeatureNode[]{});
             prob.y[i] = i;
         }
 
@@ -302,8 +320,8 @@ class LinearTest {
             Parameter param = new Parameter(solverType, 10, 0.1);
 
             assertThatExceptionOfType(IllegalArgumentException.class)
-                .isThrownBy(() -> Linear.train(prob, param))
-                .withMessageContainingAll("number of classes", "too large");
+                  .isThrownBy(() -> Linear.train(prob, param))
+                  .withMessageContainingAll("number of classes", "too large");
         }
     }
 
@@ -315,8 +333,8 @@ class LinearTest {
         Parameter param = new Parameter(ONECLASS_SVM, 10, 0.1);
 
         assertThatExceptionOfType(IllegalArgumentException.class)
-            .isThrownBy(() -> Linear.train(prob, param))
-            .withMessage("prob->bias >=0, but this is ignored in ONECLASS_SVM");
+              .isThrownBy(() -> Linear.train(prob, param))
+              .withMessage("prob->bias >=0, but this is ignored in ONECLASS_SVM");
     }
 
     @Test
@@ -328,14 +346,16 @@ class LinearTest {
         param.setRegularizeBias(false);
 
         assertThatExceptionOfType(IllegalArgumentException.class)
-            .isThrownBy(() -> Linear.train(prob, param))
-            .withMessage("To not regularize bias, must specify -B 1 along with -R");
+              .isThrownBy(() -> Linear.train(prob, param))
+              .withMessage("To not regularize bias, must specify -B 1 along with -R");
 
         prob.bias = 1;
 
         assertThatExceptionOfType(IllegalArgumentException.class)
-            .isThrownBy(() -> Linear.train(prob, param))
-            .withMessage("-R option supported only for solver L2R_LR, L2R_L2LOSS_SVC, L1R_L2LOSS_SVC, L1R_LR, and L2R_L2LOSS_SVR");
+              .isThrownBy(() -> Linear.train(prob, param))
+              .withMessage(
+                    "-R option supported only for solver L2R_LR, L2R_L2LOSS_SVC, L1R_L2LOSS_SVC, L1R_LR, and "
+                    + "L2R_L2LOSS_SVR");
 
         param.setSolverType(L1R_LR);
 
@@ -351,8 +371,10 @@ class LinearTest {
         param.setInitSol(new double[prob.n]);
 
         assertThatExceptionOfType(IllegalArgumentException.class)
-            .isThrownBy(() -> Linear.train(prob, param))
-            .withMessage("Initial-solution specification supported only for solvers L2R_LR, L2R_L2LOSS_SVC, and L2R_L2LOSS_SVR");
+              .isThrownBy(() -> Linear.train(prob, param))
+              .withMessage(
+                    "Initial-solution specification supported only for solvers L2R_LR, L2R_L2LOSS_SVC, and "
+                    + "L2R_L2LOSS_SVR");
 
         param.setSolverType(L2R_LR);
 
@@ -362,12 +384,12 @@ class LinearTest {
 
     @Test
     void testPredictProbabilityWrongSolver() throws Exception {
-        Problem prob = new Problem(clazz, 1);
+        Problem prob = new Problem(new MemoryListFactory(), 1);
         prob.setL(1);
         prob.n = 1;
         prob.y = new double[prob.getL()];
         for (int i = 0; i < prob.getL(); i++) {
-            prob.setX(i, new FeatureNode[] {});
+            prob.setX(i, new FeatureNode[]{});
             prob.y[i] = i;
         }
 
@@ -375,10 +397,10 @@ class LinearTest {
         Model model = Linear.train(prob, param);
 
         assertThatExceptionOfType(IllegalArgumentException.class)
-            .isThrownBy(() -> Linear.predictProbability(model, prob.getX(0), new double[1]))
-            .withMessage("probability output is only supported for logistic regression."
-                + " This is currently only supported by the following solvers:"
-                + " L2R_LR, L1R_LR, L2R_LR_DUAL");
+              .isThrownBy(() -> Linear.predictProbability(model, prob.getX(0), new double[1]))
+              .withMessage("probability output is only supported for logistic regression."
+                           + " This is currently only supported by the following solvers:"
+                           + " L2R_LR, L1R_LR, L2R_LR_DUAL");
     }
 
     @Test
@@ -394,13 +416,13 @@ class LinearTest {
     @Test
     void testAtoiInvalidData() {
         assertThatExceptionOfType(NumberFormatException.class)
-            .isThrownBy(() -> Linear.atoi("+"));
+              .isThrownBy(() -> Linear.atoi("+"));
 
         assertThatExceptionOfType(NumberFormatException.class)
-            .isThrownBy(() -> Linear.atoi("abc"));
+              .isThrownBy(() -> Linear.atoi("abc"));
 
         assertThatExceptionOfType(NumberFormatException.class)
-            .isThrownBy(() -> Linear.atoi(" "));
+              .isThrownBy(() -> Linear.atoi(" "));
     }
 
     @Test
@@ -413,7 +435,7 @@ class LinearTest {
     @Test
     void testAtofInvalidData() {
         assertThatExceptionOfType(NumberFormatException.class)
-            .isThrownBy(() -> Linear.atof("0.5t"));
+              .isThrownBy(() -> Linear.atof("0.5t"));
     }
 
     @Test
@@ -427,8 +449,8 @@ class LinearTest {
         doThrow(ioException).when(out).flush();
 
         assertThatExceptionOfType(IOException.class)
-            .isThrownBy(() -> Linear.saveModel(out, model))
-            .withMessage("some reason");
+              .isThrownBy(() -> Linear.saveModel(out, model))
+              .withMessage("some reason");
 
         verify(out).flush();
         verify(out, times(1)).close();
@@ -458,7 +480,7 @@ class LinearTest {
      */
     @Test
     void testTranspose() throws Exception {
-        Problem prob = new Problem(clazz, 4);
+        Problem prob = new Problem(new MemoryListFactory(), 4);
         prob.bias = -1;
         prob.n = 4;
         prob.setL(4);
@@ -505,7 +527,6 @@ class LinearTest {
     }
 
     /**
-     *
      * compared input/output values with the C version (1.51)
      *
      * <pre>
@@ -536,12 +557,12 @@ class LinearTest {
      */
     @Test
     void testTranspose2() throws Exception {
-        Problem prob = new Problem(clazz, 5);
+        Problem prob = new Problem(new MemoryListFactory(), 5);
         prob.setL(5);
         prob.bias = -1;
         prob.n = 10;
-        prob.setX(0,new FeatureNode[3]);
-        prob.setX(1,new FeatureNode[5]);
+        prob.setX(0, new FeatureNode[3]);
+        prob.setX(1, new FeatureNode[5]);
         prob.setX(2, new FeatureNode[4]);
         prob.setX(3, new FeatureNode[8]);
         prob.setX(4, new FeatureNode[2]);
@@ -630,33 +651,22 @@ class LinearTest {
     /**
      * compared input/output values with the C version (1.51)
      *
-     * IN:
-     * res prob.l = 3
-     * res prob.n = 4
-     * 0: (1,2) (3,1) (4,3)
-     * 1: (1,9) (2,7) (3,3) (4,3)
-     * 2: (2,1)
+     * IN: res prob.l = 3 res prob.n = 4 0: (1,2) (3,1) (4,3) 1: (1,9) (2,7) (3,3) (4,3) 2: (2,1)
      *
      * TRANSPOSED:
      *
-     * res prob.l = 3
-     *      * res prob.n = 4
-     * 0: (1,2) (2,9)
-     * 1: (2,7) (3,1)
-     * 2: (1,1) (2,3)
-     * 3: (1,3) (2,3)
-     *
+     * res prob.l = 3 * res prob.n = 4 0: (1,2) (2,9) 1: (2,7) (3,1) 2: (1,1) (2,3) 3: (1,3) (2,3)
      */
     @Test
     void testTranspose3() throws Exception {
-        Problem prob = new Problem(clazz, 4);
+        Problem prob = new Problem(new MemoryListFactory(), 4);
         prob.setL(4);
         prob.n = 4;
         prob.y = new double[4];
         prob.setX(0, new FeatureNode[3]);
         prob.setX(1, new FeatureNode[4]);
         prob.setX(2, new FeatureNode[1]);
-        prob.setX(3,new FeatureNode[1]);
+        prob.setX(3, new FeatureNode[1]);
 
         prob.getX(0)[0] = new FeatureNode(1, 2);
         prob.getX(0)[1] = new FeatureNode(3, 1);
@@ -689,32 +699,35 @@ class LinearTest {
 
     @Test
     void testFindBestParametersOnIrisDataSet() throws Exception {
-        Problem problem = Train.readProblem(clazz, Paths.get("src/test/resources/iris.scale"), -1);
-        Parameter param = new Parameter(L2R_L2LOSS_SVC, 1, 0.001, 0.1);
-        ParameterSearchResult result = Linear.findParameters(clazz, problem, param, 5, -1, -1);
-        assertThat(result.getBestC()).isEqualTo(4);
-        assertThat(result.getBestScore()).isEqualTo(0.88);
-        assertThat(result.getBestP()).isEqualTo(-1);
+        try (Problem problem = Train
+              .readProblem(new MapDbFileListFactory(), Paths.get("src/test/resources/iris.scale"), -1)) {
+            Parameter param = new Parameter(L2R_L2LOSS_SVC, 1, 0.001, 0.1);
+            ParameterSearchResult result = Linear.findParameters(problem, param, 5, -1, -1);
+            assertThat(result.getBestC()).isEqualTo(4);
+            assertThat(result.getBestScore()).isEqualTo(0.88);
+            assertThat(result.getBestP()).isEqualTo(-1);
+        }
     }
 
     @Test
     void testFindBestParameterC_IllegalSolver() throws Exception {
-        Problem problem = Train.readProblem(clazz, Paths.get("src/test/resources/iris.scale"), -1);
+        Problem problem = Train.readProblem(new MemoryListFactory(), Paths.get("src/test/resources/iris.scale"), -1);
 
         EnumSet<SolverType> supportedSolvers = EnumSet.of(L2R_LR, L2R_L2LOSS_SVC, L2R_L2LOSS_SVR);
         for (SolverType illegalSolver : EnumSet.complementOf(supportedSolvers)) {
             Parameter param = new Parameter(illegalSolver, 1, 0.001, 0.1);
             assertThatExceptionOfType(IllegalArgumentException.class)
-                .isThrownBy(() -> Linear.findParameters(clazz, problem, param, 5, -1, -1))
-                .withMessage("Unsupported solver: " + illegalSolver);
+                  .isThrownBy(() -> Linear.findParameters(problem, param, 5, -1, -1))
+                  .withMessage("Unsupported solver: " + illegalSolver);
         }
     }
 
     @Test
     void testFindBestParametersOnSpliceDataSet() throws Exception {
-        Problem problem = Train.readProblem(clazz, Paths.get("src/test/datasets/splice/splice"), -1);
+        Problem problem = Train
+              .readProblem(new MemoryListFactory(), Paths.get("src/test/datasets/splice/splice"), -1);
         Parameter param = new Parameter(L2R_L2LOSS_SVC, 1, 0.001, 0.1);
-        ParameterSearchResult result = Linear.findParameters(clazz, problem, param, 5, -1, -1);
+        ParameterSearchResult result = Linear.findParameters(problem, param, 5, -1, -1);
         assertThat(result.getBestC()).isEqualTo(0.001953125);
         assertThat(result.getBestScore()).isEqualTo(0.81);
         assertThat(result.getBestP()).isEqualTo(-1);
@@ -722,9 +735,9 @@ class LinearTest {
 
     @Test
     void testFindBestParametersOnSpliceDataSet_L2R_LR() throws Exception {
-        Problem problem = Train.readProblem(clazz, Paths.get("src/test/datasets/splice/splice"), -1);
+        Problem problem = Train.readProblem(new MemoryListFactory(), Paths.get("src/test/datasets/splice/splice"), -1);
         Parameter param = new Parameter(L2R_LR, 1, 0.001, 0.1);
-        ParameterSearchResult result = Linear.findParameters(clazz, problem, param, 5, -1, -1);
+        ParameterSearchResult result = Linear.findParameters(problem, param, 5, -1, -1);
         assertThat(result.getBestC()).isEqualTo(0.015625);
         assertThat(result.getBestScore()).isEqualTo(0.812);
         assertThat(result.getBestP()).isEqualTo(-1);
@@ -732,9 +745,9 @@ class LinearTest {
 
     @Test
     void testFindBestParametersOnSpliceDataSet_L2R_L2LOSS_SVR() throws Exception {
-        Problem problem = Train.readProblem(clazz, Paths.get("src/test/datasets/splice/splice"), -1);
+        Problem problem = Train.readProblem(new MemoryListFactory(), Paths.get("src/test/datasets/splice/splice"), -1);
         Parameter param = new Parameter(L2R_L2LOSS_SVR, 1, 0.001, 0.1);
-        ParameterSearchResult result = Linear.findParameters(clazz, problem, param, 5, -1, -1);
+        ParameterSearchResult result = Linear.findParameters(problem, param, 5, -1, -1);
         assertThat(result.getBestC()).isEqualTo(0.00390625);
         assertThat(result.getBestScore()).isEqualTo(0.5699399182191544, Offset.offset(0.0000001));
         assertThat(result.getBestP()).isEqualTo(0.0);
@@ -742,9 +755,10 @@ class LinearTest {
 
     @Test
     void testFindBestParametersOnDnaScaleDataSet() throws Exception {
-        Problem problem = Train.readProblem(clazz, Paths.get("src/test/datasets/dna.scale/dna.scale"), -1);
+        Problem problem = Train
+              .readProblem(new MemoryListFactory(), Paths.get("src/test/datasets/dna.scale/dna.scale"), -1);
         Parameter param = new Parameter(L2R_L2LOSS_SVC, 1, 0.001, 0.1);
-        ParameterSearchResult result = Linear.findParameters(clazz, problem, param, 5, -1, -1);
+        ParameterSearchResult result = Linear.findParameters(problem, param, 5, -1, -1);
         assertThat(result.getBestC()).isEqualTo(0.015625);
         assertThat(result.getBestScore()).isEqualTo(0.9475);
         assertThat(result.getBestP()).isEqualTo(-1);
@@ -752,9 +766,10 @@ class LinearTest {
 
     @Test
     void testFindBestParametersOnDnaScaleDataSet_L2R_L2LOSS_SVR() throws Exception {
-        Problem problem = Train.readProblem(clazz, Paths.get("src/test/datasets/dna.scale/dna.scale"), -1);
+        Problem problem = Train
+              .readProblem(new MemoryListFactory(), Paths.get("src/test/datasets/dna.scale/dna.scale"), -1);
         Parameter param = new Parameter(L2R_L2LOSS_SVR, 1, 0.0001, 0.1);
-        ParameterSearchResult result = Linear.findParameters(clazz, problem, param, 5, -1, -1);
+        ParameterSearchResult result = Linear.findParameters(problem, param, 5, -1, -1);
         assertThat(result.getBestC()).isEqualTo(0.015625);
         assertThat(result.getBestScore()).isEqualTo(0.29743037982927906, Offset.offset(0.0000001));
         assertThat(result.getBestP()).isEqualTo(0.15);
