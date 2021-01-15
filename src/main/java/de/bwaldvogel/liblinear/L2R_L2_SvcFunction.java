@@ -7,7 +7,7 @@ class L2R_L2_SvcFunction extends L2R_ErmFunction {
 
     public L2R_L2_SvcFunction(Problem prob, Parameter param, double[] C) {
         super(prob, param, C);
-        I = new int[prob.l];
+        I = new int[prob.getL()];
     }
 
     @Override
@@ -23,7 +23,7 @@ class L2R_L2_SvcFunction extends L2R_ErmFunction {
     public void grad(double[] w, double[] g) {
         int i;
         double[] y = prob.y;
-        int l = prob.l;
+        int l = prob.getL();
         int w_size = get_nr_variable();
 
         sizeI = 0;
@@ -46,7 +46,6 @@ class L2R_L2_SvcFunction extends L2R_ErmFunction {
     @Override
     public void get_diag_preconditioner(double[] M) {
         int w_size = get_nr_variable();
-        Feature[][] x = prob.x;
 
         for (int i = 0; i < w_size; i++)
             M[i] = 1;
@@ -55,7 +54,7 @@ class L2R_L2_SvcFunction extends L2R_ErmFunction {
 
         for (int i = 0; i < sizeI; i++) {
             int idx = I[i];
-            for (Feature s : x[idx]) {
+            for (Feature s : prob.getX(idx)) {
                 M[s.getIndex() - 1] += s.getValue() * s.getValue() * C[idx] * 2;
             }
         }
@@ -65,12 +64,11 @@ class L2R_L2_SvcFunction extends L2R_ErmFunction {
     public void Hv(double[] s, double[] Hs) {
         int i;
         int w_size = get_nr_variable();
-        Feature[][] x = prob.x;
 
         for (i = 0; i < w_size; i++)
             Hs[i] = 0;
         for (i = 0; i < sizeI; i++) {
-            Feature[] xi = x[I[i]];
+            Feature[] xi = prob.getX(I[i]);
             double xTs = SparseOperator.dot(s, xi);
             xTs = C[I[i]] * xTs;
 
@@ -85,12 +83,11 @@ class L2R_L2_SvcFunction extends L2R_ErmFunction {
     protected void subXTv(double[] v, double[] XTv) {
         int i;
         int w_size = get_nr_variable();
-        Feature[][] x = prob.x;
 
         for (i = 0; i < w_size; i++)
             XTv[i] = 0;
         for (i = 0; i < sizeI; i++)
-            SparseOperator.axpy(v[i], x[I[i]], XTv);
+            SparseOperator.axpy(v[i], prob.getX(I[i]), XTv);
     }
 
 }

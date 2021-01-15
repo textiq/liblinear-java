@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
@@ -31,16 +32,18 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @Measurement(iterations = 5, time = 3, timeUnit = TimeUnit.SECONDS)
 public class LinearBenchmark {
 
+    private static Class clazz = ArrayList.class;
+
     @Benchmark
     public void readProblem(DatasetParameters datasetParameters) throws Exception {
         Path trainingFile = getTrainingFile(datasetParameters.dataset);
         try (InputStream inputStream = getInputStream(trainingFile)) {
-            Train.readProblem(inputStream, -1);
+            Train.readProblem(clazz, inputStream, -1);
         }
     }
 
     @Benchmark
-    public void train(BenchmarkParameters benchmarkParameters) {
+    public void train(BenchmarkParameters benchmarkParameters) throws IllegalAccessException, InstantiationException {
         Linear.disableDebugOutput();
         Linear.train(benchmarkParameters.problem, new Parameter(benchmarkParameters.solverType, 1, 1e-3));
     }
@@ -65,7 +68,7 @@ public class LinearBenchmark {
         public void loadDataset() throws Exception {
             Path trainingFile = getTrainingFile(dataset);
             try (InputStream inputStream = getInputStream(trainingFile)) {
-                problem = Train.readProblem(inputStream, -1);
+                problem = Train.readProblem(clazz, inputStream, -1);
             }
         }
 

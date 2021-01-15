@@ -6,7 +6,7 @@ class L2R_LrFunction extends L2R_ErmFunction {
 
     L2R_LrFunction(Problem prob, Parameter param, double[] C) {
         super(prob, param, C);
-        int l = prob.l;
+        int l = prob.getL();
         D = new double[l];
     }
 
@@ -23,7 +23,7 @@ class L2R_LrFunction extends L2R_ErmFunction {
     public void grad(double[] w, double[] g) {
         int i;
         double[] y = prob.y;
-        int l = prob.l;
+        int l = prob.getL();
         int w_size = get_nr_variable();
 
         for (i = 0; i < l; i++) {
@@ -41,9 +41,8 @@ class L2R_LrFunction extends L2R_ErmFunction {
 
     @Override
     public void get_diag_preconditioner(double[] M) {
-        int l = prob.l;
+        int l = prob.getL();
         int w_size = get_nr_variable();
-        Feature[][] x = prob.x;
 
         for (int i = 0; i < w_size; i++)
             M[i] = 1;
@@ -51,7 +50,7 @@ class L2R_LrFunction extends L2R_ErmFunction {
             M[w_size - 1] = 0;
 
         for (int i = 0; i < l; i++) {
-            for (Feature xi : x[i]) {
+            for (Feature xi : prob.getX(i)) {
                 M[xi.getIndex() - 1] += xi.getValue() * xi.getValue() * C[i] * D[i];
             }
         }
@@ -60,14 +59,13 @@ class L2R_LrFunction extends L2R_ErmFunction {
     @Override
     public void Hv(double[] s, double[] Hs) {
         int i;
-        int l = prob.l;
+        int l = prob.getL();
         int w_size = get_nr_variable();
-        Feature[][] x = prob.x;
 
         for (i = 0; i < w_size; i++)
             Hs[i] = 0;
         for (i = 0; i < l; i++) {
-            Feature[] xi = x[i];
+            Feature[] xi = prob.getX(i);
             double xTs = SparseOperator.dot(s, xi);
 
             xTs = C[i] * D[i] * xTs;

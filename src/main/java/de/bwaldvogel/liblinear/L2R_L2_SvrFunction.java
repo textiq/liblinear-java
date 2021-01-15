@@ -26,7 +26,7 @@ public class L2R_L2_SvrFunction extends L2R_L2_SvcFunction {
     public void grad(double[] w, double[] g) {
         int i;
         double[] y = prob.y;
-        int l = prob.l;
+        int l = prob.getL();
         int w_size = get_nr_variable();
         double d;
 

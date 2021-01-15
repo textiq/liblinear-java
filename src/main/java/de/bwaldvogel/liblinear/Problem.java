@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Iterator;
 
 
 /**
@@ -34,20 +36,65 @@ import java.nio.file.Path;
  *       [ ] -&gt; (1,-0.1) (2,-0.2) (3,0.1) (4,1.1) (5,0.1) (6,1) (-1,?)
  * </pre>
  */
-public class Problem {
+public class Problem<T extends ArrayList<FeatureVector>> {
 
     /** the number of training data */
-    public int l;
+    private int l;
 
     /** the number of features (including the bias feature if bias &gt;= 0) */
     public int n;
+
+    private int size;
 
     /** an array containing the target values */
     public double[] y;
 
     /** array of sparse feature nodes */
-    public Feature[][] x;
+    public T x;
 
+    public Class<T> getClazz() {
+        return clazz;
+    }
+
+    public Class<T> clazz;
+
+    public Problem(Class<T> listclazz, int size) throws IllegalAccessException, InstantiationException {
+        x = listclazz.newInstance();
+        for (int i =0;i<size;i++){
+            x.add(null);
+        }
+        this.clazz =listclazz;
+        this.size = size;
+    }
+
+    public void reinitX(int size) throws IllegalAccessException, InstantiationException {
+        x = clazz.newInstance();
+        for (int i =0;i<size;i++){
+            x.add(null);
+        }
+    }
+
+    public void setL(int l){
+        this.l = l;
+    }
+    public int getL(){
+        return l;
+    }
+
+    public int getSize(){
+        return size;
+    }
+    public void setX(int index, Feature[] features){
+        x.set(index, new FeatureVector(features));
+    }
+
+    public Feature[] getX(int index){
+        return x.get(index).getFeatures();
+    }
+
+    public Iterator<FeatureVector> getXIterator(){
+        return x.iterator();
+    }
     /**
      * If bias &gt;= 0, we assume that one additional feature is added
      * to the end of each data instance
@@ -57,42 +104,58 @@ public class Problem {
     /**
      * @deprecated use {@link Problem#readFromFile(Path, double)} instead
      */
-    public static Problem readFromFile(File file, double bias) throws IOException, InvalidInputDataException {
-        return readFromFile(file.toPath(), bias);
+    public static Problem readFromFile(Class<? extends ArrayList<FeatureVector>> clazz,
+                                       File file, double bias) throws IOException,
+          InvalidInputDataException, IllegalAccessException, InstantiationException {
+        return readFromFile(clazz, file.toPath(), bias);
     }
 
     /**
      * see {@link Train#readProblem(Path, double)}
      */
-    public static Problem readFromFile(Path path, double bias) throws IOException, InvalidInputDataException {
-        return Train.readProblem(path, bias);
+    public static Problem readFromFile(Class<? extends ArrayList<FeatureVector>> clazz,
+                                       Path path, double bias)
+          throws IOException, InvalidInputDataException, InstantiationException, IllegalAccessException {
+        return Train.readProblem(clazz, path, bias);
     }
 
     /**
      * @deprecated use {@link Problem#readFromFile(Path, Charset, double)} instead
      */
-    public static Problem readFromFile(File file, Charset charset, double bias) throws IOException, InvalidInputDataException {
-        return readFromFile(file.toPath(), charset, bias);
+    public static Problem readFromFile(Class<? extends ArrayList<FeatureVector>> clazz,
+                                       File file, Charset charset,
+                                       double bias)
+          throws IOException, InvalidInputDataException, InstantiationException, IllegalAccessException {
+        return readFromFile(clazz, file.toPath(), charset, bias);
     }
 
     /**
      * see {@link Train#readProblem(Path, Charset, double)}
      */
-    public static Problem readFromFile(Path path, Charset charset, double bias) throws IOException, InvalidInputDataException {
-        return Train.readProblem(path, charset, bias);
+    public static Problem readFromFile(Class<? extends ArrayList<FeatureVector>> clazz,
+                                       Path path, Charset charset,
+                                       double bias)
+          throws IOException, InvalidInputDataException, IllegalAccessException, InstantiationException {
+        return Train.readProblem(clazz, path, charset, bias);
     }
 
     /**
      * see {@link Train#readProblem(InputStream, double)}
      */
-    public static Problem readFromStream(InputStream inputStream, double bias) throws IOException, InvalidInputDataException {
-        return Train.readProblem(inputStream, bias);
+    public static Problem readFromStream(Class<? extends ArrayList<FeatureVector>> clazz,
+                                         InputStream inputStream,
+                                         double bias)
+          throws IOException, InvalidInputDataException, IllegalAccessException, InstantiationException {
+        return Train.readProblem(clazz, inputStream, bias);
     }
 
     /**
      * see {@link Train#readProblem(InputStream, Charset, double)}
      */
-    public static Problem readFromStream(InputStream inputStream, Charset charset, double bias) throws IOException, InvalidInputDataException {
-        return Train.readProblem(inputStream, charset, bias);
+    public static Problem readFromStream(Class<? extends ArrayList<FeatureVector>> clazz,
+                                         InputStream inputStream,
+                                         Charset charset, double bias)
+          throws IOException, InvalidInputDataException, InstantiationException, IllegalAccessException {
+        return Train.readProblem(clazz, inputStream, charset, bias);
     }
 }

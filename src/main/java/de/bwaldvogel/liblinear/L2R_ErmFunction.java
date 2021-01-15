@@ -12,7 +12,7 @@ abstract class L2R_ErmFunction implements Function {
     final   boolean regularize_bias;
 
     L2R_ErmFunction(Problem prob, Parameter parameter, double[] C) {
-        int l = prob.l;
+        int l = prob.getL();
 
         this.prob = prob;
 
@@ -24,23 +24,21 @@ abstract class L2R_ErmFunction implements Function {
 
     void Xv(double[] v, double[] Xv) {
         int i;
-        int l = prob.l;
-        Feature[][] x = prob.x;
+        int l = prob.getL();
 
         for (i = 0; i < l; i++)
-            Xv[i] = SparseOperator.dot(v, x[i]);
+            Xv[i] = SparseOperator.dot(v, prob.getX(i));
     }
 
     void XTv(double[] v, double[] XTv) {
-        int l = prob.l;
+        int l = prob.getL();
         int w_size = get_nr_variable();
-        Feature[][] x = prob.x;
 
         for (int i = 0; i < w_size; i++)
             XTv[i] = 0;
 
         for (int i = 0; i < l; i++) {
-            SparseOperator.axpy(v[i], x[i], XTv);
+            SparseOperator.axpy(v[i], prob.getX(i), XTv);
         }
     }
 
@@ -50,7 +48,7 @@ abstract class L2R_ErmFunction implements Function {
     public double fun(double[] w) {
         int i;
         double f = 0;
-        int l = prob.l;
+        int l = prob.getL();
         int w_size = get_nr_variable();
 
         wTw = 0;
@@ -77,7 +75,7 @@ abstract class L2R_ErmFunction implements Function {
     @Override
     public double linesearch_and_update(double[] w, double[] s, MutableDouble f, double[] g, double alpha) {
         int i;
-        int l = prob.l;
+        int l = prob.getL();
         double sTs = 0;
         double wTs = 0;
         double gTs = 0;

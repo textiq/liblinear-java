@@ -13,8 +13,11 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.AbstractList;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Formatter;
+import java.util.Iterator;
 import java.util.Locale;
 import java.util.Random;
 import java.util.regex.Pattern;
@@ -49,9 +52,10 @@ public class Linear {
     /**
      * @param target predicted classes
      */
-    public static void crossValidation(Problem prob, Parameter param, int nr_fold, double[] target) {
+    public static void crossValidation(Problem prob, Parameter param, int nr_fold, double[] target)
+          throws IllegalAccessException, InstantiationException {
         int i;
-        int l = prob.l;
+        int l = prob.getL();
         int[] perm = new int[l];
 
         if (nr_fold > l) {
@@ -73,37 +77,40 @@ public class Linear {
             int begin = fold_start[i];
             int end = fold_start[i + 1];
             int j, k;
-            Problem subprob = new Problem();
+            Problem subprob = new Problem(prob.getClazz(), prob.getSize());
 
             subprob.bias = prob.bias;
             subprob.n = prob.n;
-            subprob.l = l - (end - begin);
-            subprob.x = new Feature[subprob.l][];
-            subprob.y = new double[subprob.l];
+            subprob.setL(l - (end - begin));
+           // subprob.x = new Feature[subprob.getL()][];
+            subprob.y = new double[prob.getSize()];
 
             k = 0;
             for (j = 0; j < begin; j++) {
-                subprob.x[k] = prob.x[perm[j]];
+                subprob.setX(k,prob.getX(perm[j]));
                 subprob.y[k] = prob.y[perm[j]];
                 ++k;
             }
             for (j = end; j < l; j++) {
-                subprob.x[k] = prob.x[perm[j]];
+                subprob.setX(k,prob.getX(perm[j]));
                 subprob.y[k] = prob.y[perm[j]];
                 ++k;
             }
             Model submodel = train(subprob, param);
             for (j = begin; j < end; j++)
-                target[perm[j]] = predict(submodel, prob.x[perm[j]]);
+                target[perm[j]] = predict(submodel, prob.getX(perm[j]));
         }
     }
 
-    public static ParameterSearchResult findParameters(Problem prob, Parameter param, int nr_fold, double start_C, double start_p) {
+    public static ParameterSearchResult findParameters(Class<? extends ArrayList<FeatureVector>> clazz,
+                                                       Problem<?extends ArrayList<FeatureVector>> prob,
+                                                       Parameter param, int nr_fold, double start_C, double start_p)
+          throws InstantiationException, IllegalAccessException {
         double best_C = Double.NaN;
         double best_score = Double.NaN;
         // prepare CV folds
         int i;
-        int l = prob.l;
+        int l = prob.getL();
         int[] perm = new int[l];
         Problem[] subprob = new Problem[nr_fold];
 
@@ -127,21 +134,20 @@ public class Linear {
             int j, k;
 
             assert subprob[i] == null;
-            subprob[i] = new Problem();
+            subprob[i] = new Problem<>(clazz, l - (end - begin));
             subprob[i].bias = prob.bias;
             subprob[i].n = prob.n;
-            subprob[i].l = l - (end - begin);
-            subprob[i].x = new Feature[subprob[i].l][];
-            subprob[i].y = new double[subprob[i].l];
+            subprob[i].setL(l - (end - begin));
+            subprob[i].y = new double[subprob[i].getL()];
 
             k = 0;
             for (j = 0; j < begin; j++) {
-                subprob[i].x[k] = prob.x[perm[j]];
+                subprob[i].setX(k,prob.getX(perm[j]));
                 subprob[i].y[k] = prob.y[perm[j]];
                 ++k;
             }
             for (j = end; j < l; j++) {
-                subprob[i].x[k] = prob.x[perm[j]];
+                subprob[i].setX(k,prob.getX(perm[j]));
                 subprob[i].y[k] = prob.y[perm[j]];
                 ++k;
             }
@@ -207,7 +213,7 @@ public class Linear {
     }
 
     private static GroupClassesReturn groupClasses(Problem prob, int[] perm) {
-        int l = prob.l;
+        int l = prob.getL();
         int max_nr_class = 16;
         int nr_class = 0;
 
@@ -636,7 +642,7 @@ public class Linear {
      *</pre>
      */
     private static int solve_l2r_l1l2_svc(Problem prob, Parameter param, double[] w, double Cp, double Cn, int max_iter) {
-        int l = prob.l;
+        int l = prob.getL();
         int w_size = prob.n;
         double eps = param.eps;
         SolverType solver_type = param.solverType;
@@ -682,7 +688,7 @@ public class Linear {
         for (i = 0; i < l; i++) {
             QD[i] = diag[GETI(y, i)];
 
-            Feature[] xi = prob.x[i];
+            Feature[] xi = prob.getX(i);
             QD[i] += SparseOperator.nrm2_sq(xi);
             SparseOperator.axpy(y[i] * alpha[i], xi, w);
 
@@ -701,7 +707,7 @@ public class Linear {
             for (s = 0; s < active_size; s++) {
                 i = index[s];
                 byte yi = y[i];
-                Feature[] xi = prob.x[i];
+                Feature[] xi = prob.getX(i);
 
                 G = yi * SparseOperator.dot(w, xi) - 1;
 
@@ -819,7 +825,7 @@ public class Linear {
      */
     private static int solve_l2r_l1l2_svr(Problem prob, Parameter param, double[] w, int max_iter) {
         SolverType solver_type = param.solverType;
-        int l = prob.l;
+        int l = prob.getL();
         double C = param.C;
         double p = param.p;
         int w_size = prob.n;
@@ -855,7 +861,7 @@ public class Linear {
         for (i = 0; i < w_size; i++)
             w[i] = 0;
         for (i = 0; i < l; i++) {
-            Feature[] xi = prob.x[i];
+            Feature[] xi = prob.getX(i);
             QD[i] = SparseOperator.nrm2_sq(xi);
             SparseOperator.axpy(beta[i], xi, w);
 
@@ -876,7 +882,7 @@ public class Linear {
                 G = -y[i] + lambda[GETI_SVR(i)] * beta[i];
                 H = QD[i] + lambda[GETI_SVR(i)];
 
-                Feature[] xi = prob.x[i];
+                Feature[] xi = prob.getX(i);
                 G += SparseOperator.dot(w, xi);
 
                 double Gp = G + p;
@@ -1003,7 +1009,7 @@ public class Linear {
      * @since 1.7
      */
     private static int solve_l2r_lr_dual(Problem prob, Parameter param, double[] w, double Cp, double Cn, int max_iter) {
-        int l = prob.l;
+        int l = prob.getL();
         int w_size = prob.n;
         double eps = param.eps;
         int i, s, iter = 0;
@@ -1035,7 +1041,7 @@ public class Linear {
         for (i = 0; i < w_size; i++)
             w[i] = 0;
         for (i = 0; i < l; i++) {
-            Feature[] xi = prob.x[i];
+            Feature[] xi = prob.getX(i);
             xTx[i] = SparseOperator.nrm2_sq(xi);
             SparseOperator.axpy(y[i] * alpha[2 * i], xi, w);
             index[i] = i;
@@ -1053,7 +1059,7 @@ public class Linear {
                 final byte yi = y[i];
                 double C = upper_bound[GETI(y, i)];
                 double ywTx = 0, xisq = xTx[i];
-                Feature[] xi = prob.x[i];
+                Feature[] xi = prob.getX(i);
                 ywTx = yi * SparseOperator.dot(w, xi);
                 double a = xisq, b = ywTx;
 
@@ -1153,7 +1159,7 @@ public class Linear {
      */
     private static int solve_l1r_l2_svc(Problem prob_col, Parameter param, double[] w,
         double Cp, double Cn, double eps, int max_iter) {
-        int l = prob_col.l;
+        int l = prob_col.getL();
         int w_size = prob_col.n;
         boolean regularize_bias = param.regularize_bias;
         int j, s, iter = 0;
@@ -1191,7 +1197,7 @@ public class Linear {
         for (j = 0; j < w_size; j++) {
             index[j] = j;
             xj_sq[j] = 0;
-            for (Feature xi : prob_col.x[j]) {
+            for (Feature xi : prob_col.getX(j)) {
                 int ind = xi.getIndex() - 1;
                 xi.setValue(xi.getValue() * y[ind]); // x->value stores yi*xij
                 double val = xi.getValue();
@@ -1215,7 +1221,7 @@ public class Linear {
                 G_loss = 0;
                 H = 0;
 
-                for (Feature xi : prob_col.x[j]) {
+                for (Feature xi : prob_col.getX(j)) {
                     int ind = xi.getIndex() - 1;
                     if (b[ind] > 0) {
                         double val = xi.getValue();
@@ -1287,7 +1293,7 @@ public class Linear {
 
                     appxcond = xj_sq[j] * d * d + G_loss * d + cond;
                     if (appxcond <= 0) {
-                        Feature[] x = prob_col.x[j];
+                        Feature[] x = prob_col.getX(j);
                         SparseOperator.axpy(d_diff, x, b);
                         break;
                     }
@@ -1295,7 +1301,7 @@ public class Linear {
                     if (num_linesearch == 0) {
                         loss_old = 0;
                         loss_new = 0;
-                        for (Feature x : prob_col.x[j]) {
+                        for (Feature x : prob_col.getX(j)) {
                             int ind = x.getIndex() - 1;
                             if (b[ind] > 0) {
                                 loss_old += C[GETI(y, ind)] * b[ind] * b[ind];
@@ -1308,7 +1314,7 @@ public class Linear {
                         }
                     } else {
                         loss_new = 0;
-                        for (Feature x : prob_col.x[j]) {
+                        for (Feature x : prob_col.getX(j)) {
                             int ind = x.getIndex() - 1;
                             double b_new = b[ind] + d_diff * x.getValue();
                             b[ind] = b_new;
@@ -1339,7 +1345,7 @@ public class Linear {
                     for (int i = 0; i < w_size; i++) {
                         if (w[i] == 0)
                             continue;
-                        Feature[] x = prob_col.x[i];
+                        Feature[] x = prob_col.getX(i);
                         SparseOperator.axpy(-w[i], x, b);
                     }
                 }
@@ -1375,7 +1381,7 @@ public class Linear {
         double v = 0;
         int nnz = 0;
         for (j = 0; j < w_size; j++) {
-            for (Feature x : prob_col.x[j]) {
+            for (Feature x : prob_col.getX(j)) {
                 x.setValue(x.getValue() * prob_col.y[x.getIndex() - 1]); // restore x->value
             }
             if (w[j] != 0) {
@@ -1419,7 +1425,7 @@ public class Linear {
      * @since 1.5
      */
     private static int solve_l1r_lr(Problem prob_col, Parameter param, double[] w, double Cp, double Cn, double eps, int max_iter) {
-        int l = prob_col.l;
+        int l = prob_col.getL();
         int w_size = prob_col.n;
         boolean regularize_bias = param.regularize_bias;
         int j, s, newton_iter = 0, iter = 0;
@@ -1473,7 +1479,7 @@ public class Linear {
             wpd[j] = w[j];
             index[j] = j;
             xjneg_sum[j] = 0;
-            for (Feature x : prob_col.x[j]) {
+            for (Feature x : prob_col.getX(j)) {
                 int ind = x.getIndex() - 1;
                 double val = x.getValue();
                 exp_wTx[ind] += w[j] * val;
@@ -1503,7 +1509,7 @@ public class Linear {
                 Grad[j] = 0;
 
                 double tmp = 0;
-                for (Feature x : prob_col.x[j]) {
+                for (Feature x : prob_col.getX(j)) {
                     int ind = x.getIndex() - 1;
                     Hdiag[j] += x.getValue() * x.getValue() * D[ind];
                     tmp += x.getValue() * tau[ind];
@@ -1565,7 +1571,7 @@ public class Linear {
                     H = Hdiag[j];
 
                     G = Grad[j] + (wpd[j] - w[j]) * nu;
-                    for (Feature x : prob_col.x[j]) {
+                    for (Feature x : prob_col.getX(j)) {
                         int ind = x.getIndex() - 1;
                         G += x.getValue() * D[ind] * xTd[ind];
                     }
@@ -1613,7 +1619,7 @@ public class Linear {
 
                     wpd[j] += z;
 
-                    Feature[] x = prob_col.x[j];
+                    Feature[] x = prob_col.getX(j);
                     SparseOperator.axpy(z, x, xTd);
                 }
 
@@ -1699,7 +1705,7 @@ public class Linear {
                 for (int i = 0; i < w_size; i++) {
                     if (w[i] == 0)
                         continue;
-                    Feature[] x = prob_col.x[i];
+                    Feature[] x = prob_col.getX(i);
                     SparseOperator.axpy(w[i], x, exp_wTx);
                 }
 
@@ -1768,7 +1774,7 @@ public class Linear {
      * @since 2.40
      */
     static int solve_oneclass_svm(Problem prob, Parameter param, double[] w, MutableDouble rho, int max_iter) {
-        int l = prob.l;
+        int l = prob.getL();
         int w_size = prob.n;
         double eps = param.eps;
         double nu = param.nu;
@@ -1800,7 +1806,7 @@ public class Linear {
         for (i = 0; i < w_size; i++)
             w[i] = 0;
         for (i = 0; i < l; i++) {
-            Feature[] xi = prob.x[i];
+            Feature[] xi = prob.getX(i);
             QD[i] = SparseOperator.nrm2_sq(xi);
             SparseOperator.axpy(alpha[i], xi, w);
 
@@ -1813,7 +1819,7 @@ public class Linear {
 
             for (s = 0; s < active_size; s++) {
                 i = index[s];
-                Feature[] xi = prob.x[i];
+                Feature[] xi = prob.getX(i);
                 G[i] = SparseOperator.dot(w, xi);
                 if (alpha[i] < 1)
                     negGmax = Math.max(negGmax, -G[i]);
@@ -1888,8 +1894,8 @@ public class Linear {
                     (alpha[i] == 1 && alpha[j] == 1))
                     continue;
 
-                Feature[] xi = prob.x[i];
-                Feature[] xj = prob.x[j];
+                Feature[] xi = prob.getX(i);
+                Feature[] xj = prob.getX(j);
 
                 Gi = SparseOperator.dot(w, xi);
                 Gj = SparseOperator.dot(w, xj);
@@ -1961,7 +1967,7 @@ public class Linear {
         double nr_free = 0;
         double ub = Double.POSITIVE_INFINITY, lb = Double.NEGATIVE_INFINITY, sum_free = 0;
         for (i = 0; i < l; i++) {
-            double G_ = SparseOperator.dot(w, prob.x[i]);
+            double G_ = SparseOperator.dot(w, prob.getX(i));
             if (alpha[i] == 1)
                 lb = Math.max(lb, G_);
             else if (alpha[i] == 0)
@@ -1983,41 +1989,45 @@ public class Linear {
     }
 
     // transpose matrix X from row format to column format
-    static Problem transpose(Problem prob) {
-        int l = prob.l;
+    static Problem transpose(Problem prob)
+          throws InstantiationException, IllegalAccessException {
+        int l = prob.getL();
         int n = prob.n;
         int[] col_ptr = new int[n + 1];
-        Problem prob_col = new Problem();
-        prob_col.l = l;
+        Problem prob_col = new Problem(prob.getClazz(),n);
+       // prob_col.l = l;
         prob_col.n = n;
         prob_col.y = new double[l];
-        prob_col.x = new Feature[n][];
+        prob_col.reinitX(n);
+        prob_col.setL(l);
+       // prob_col.x = new Feature[n][];
 
         for (int i = 0; i < l; i++)
             prob_col.y[i] = prob.y[i];
 
         for (int i = 0; i < l; i++) {
-            for (Feature x : prob.x[i]) {
+            for (Feature x : prob.getX(i)) {
                 col_ptr[x.getIndex()]++;
             }
         }
 
         for (int i = 0; i < n; i++) {
-            prob_col.x[i] = new Feature[col_ptr[i + 1]];
+            prob_col.setX(i, new Feature[col_ptr[i + 1]]);
             col_ptr[i] = 0; // reuse the array to count the nr of elements
         }
 
         for (int i = 0; i < l; i++) {
-            for (int j = 0; j < prob.x[i].length; j++) {
-                Feature x = prob.x[i][j];
+            for (int j = 0; j < prob.getX(i).length; j++) {
+                Feature x = prob.getX(i)[j];
                 int index = x.getIndex() - 1;
-                prob_col.x[index][col_ptr[index]] = new FeatureNode(i + 1, x.getValue());
+                prob_col.getX(index)[col_ptr[index]] = new FeatureNode(i + 1, x.getValue());
                 col_ptr[index]++;
             }
         }
 
         return prob_col;
     }
+
 
     static void swap(double[] array, int idxA, int idxB) {
         double temp = array[idxA];
@@ -2046,7 +2056,8 @@ public class Linear {
     /**
      * @throws IllegalArgumentException if the feature nodes of prob are not sorted in ascending order
      */
-    public static Model train(Problem prob, Parameter param) {
+    public static Model train(Problem<? extends ArrayList<FeatureVector>> prob, Parameter param)
+          throws InstantiationException, IllegalAccessException {
         if (prob == null) {
             throw new IllegalArgumentException("problem must not be null");
         }
@@ -2065,17 +2076,21 @@ public class Linear {
 
         if (prob.n == 0)
             throw new IllegalArgumentException("problem has zero features");
-        if (prob.l == 0)
+        if (prob.getL() == 0)
             throw new IllegalArgumentException("problem has zero instances");
 
-        for (Feature[] nodes : prob.x) {
+        Iterator<FeatureVector> iterator = prob.getXIterator();
+        int i = 0;
+        while(iterator.hasNext() && i<prob.getL()){
+            FeatureVector featureVector = iterator.next();
             int indexBefore = 0;
-            for (Feature n : nodes) {
+            for (Feature n : featureVector.getFeatures()) {
                 if (n.getIndex() <= indexBefore) {
                     throw new IllegalArgumentException("feature nodes must be sorted by index in ascending order");
                 }
                 indexBefore = n.getIndex();
             }
+            i++;
         }
 
         if (prob.bias >= 0 && param.solverType.isOneClass()) {
@@ -2101,7 +2116,7 @@ public class Linear {
             throw new IllegalArgumentException("Initial-solution specification supported only for solvers L2R_LR, L2R_L2LOSS_SVC, and L2R_L2LOSS_SVR");
         }
 
-        int l = prob.l;
+        int l = prob.getL();
         int n = prob.n;
         int w_size = prob.n;
         Model model = new Model();
@@ -2117,10 +2132,10 @@ public class Linear {
         if (param.solverType.isSupportVectorRegression()) {
             model.w = new double[w_size];
             if (param.init_sol != null)
-                for (int i = 0; i < w_size; i++)
+                for ( i = 0; i < w_size; i++)
                     model.w[i] = param.init_sol[i];
             else
-                for (int i = 0; i < w_size; i++)
+                for ( i = 0; i < w_size; i++)
                     model.w[i] = 0;
             model.nr_class = 2;
             model.label = null;
@@ -2149,14 +2164,14 @@ public class Linear {
 
             model.nr_class = nr_class;
             model.label = new int[nr_class];
-            for (int i = 0; i < nr_class; i++)
+            for (i = 0; i < nr_class; i++)
                 model.label[i] = label[i];
 
             // calculate weighted C
             double[] weighted_C = new double[nr_class];
-            for (int i = 0; i < nr_class; i++)
+            for (i = 0; i < nr_class; i++)
                 weighted_C[i] = param.C;
-            for (int i = 0; i < param.getNumWeights(); i++) {
+            for ( i = 0; i < param.getNumWeights(); i++) {
                 int j;
                 for (j = 0; j < nr_class; j++)
                     if (param.weightLabel[i] == label[j])
@@ -2169,22 +2184,22 @@ public class Linear {
 
             // constructing the subproblem
             Feature[][] x = new Feature[l][];
-            for (int i = 0; i < l; i++)
-                x[i] = prob.x[perm[i]];
+            for ( i = 0; i < l; i++)
+                x[i] = prob.getX(perm[i]);
 
-            Problem sub_prob = new Problem();
-            sub_prob.l = l;
+            Problem<? extends ArrayList<FeatureVector>> sub_prob = new Problem<>(prob.getClazz(), prob.getSize());
             sub_prob.n = n;
-            sub_prob.x = new Feature[sub_prob.l][];
-            sub_prob.y = new double[sub_prob.l];
+            sub_prob.setL(l);
+            sub_prob.y = new double[sub_prob.getL()];
 
-            for (int k = 0; k < sub_prob.l; k++)
-                sub_prob.x[k] = x[k];
+
+            for (int k = 0; k < sub_prob.getL(); k++)
+                sub_prob.setX(k,x[k]);
 
             // multi-class svm by Crammer and Singer
             if (param.solverType == MCSVM_CS) {
                 model.w = new double[n * nr_class];
-                for (int i = 0; i < nr_class; i++) {
+                for ( i = 0; i < nr_class; i++) {
                     for (int j = start[i]; j < start[i] + count[i]; j++) {
                         sub_prob.y[j] = i;
                     }
@@ -2200,21 +2215,21 @@ public class Linear {
                     int k = 0;
                     for (; k < e0; k++)
                         sub_prob.y[k] = +1;
-                    for (; k < sub_prob.l; k++)
+                    for (; k < sub_prob.getL(); k++)
                         sub_prob.y[k] = -1;
 
                     if (param.init_sol != null)
-                        for (int i = 0; i < w_size; i++)
+                        for ( i = 0; i < w_size; i++)
                             model.w[i] = param.init_sol[i];
                     else
-                        for (int i = 0; i < w_size; i++)
+                        for ( i = 0; i < w_size; i++)
                             model.w[i] = 0;
 
                     train_one(sub_prob, param, model.w, weighted_C[0], weighted_C[1]);
                 } else {
                     model.w = new double[w_size * nr_class];
                     double[] w = new double[w_size];
-                    for (int i = 0; i < nr_class; i++) {
+                    for ( i = 0; i < nr_class; i++) {
                         int si = start[i];
                         int ei = si + count[i];
 
@@ -2223,7 +2238,7 @@ public class Linear {
                             sub_prob.y[k] = -1;
                         for (; k < ei; k++)
                             sub_prob.y[k] = +1;
-                        for (; k < sub_prob.l; k++)
+                        for (; k < sub_prob.getL(); k++)
                             sub_prob.y[k] = -1;
 
                         if (param.init_sol != null)
@@ -2253,7 +2268,9 @@ public class Linear {
         }
     }
 
-    private static void train_one(Problem prob, Parameter param, double[] w, double Cp, double Cn) {
+    private static void train_one(Problem<? extends ArrayList<FeatureVector>> prob,
+                                  Parameter param, double[] w, double Cp, double Cn)
+          throws IllegalAccessException, InstantiationException {
         SolverType solver_type = param.solverType;
         int dual_solver_max_iter = 300;
         int iter;
@@ -2262,22 +2279,22 @@ public class Linear {
         boolean is_regression = solver_type.isSupportVectorRegression();
 
         // Some solvers use Cp,Cn but not C array; extensions possible but no plan for now
-        double[] C = new double[prob.l];
+        double[] C = new double[prob.getL()];
         double primal_solver_tol = param.eps;
         if (is_regression) {
-            for (int i = 0; i < prob.l; i++)
+            for (int i = 0; i < prob.getL(); i++)
                 C[i] = param.C;
         } else {
             int pos = 0;
-            for (int i = 0; i < prob.l; i++) {
+            for (int i = 0; i < prob.getL(); i++) {
                 if (prob.y[i] > 0) {
                     pos++;
                     C[i] = Cp;
                 } else
                     C[i] = Cn;
             }
-            int neg = prob.l - pos;
-            primal_solver_tol = param.eps * Math.max(Math.min(pos, neg), 1) / prob.l;
+            int neg = prob.getL() - pos;
+            primal_solver_tol = param.eps * Math.max(Math.min(pos, neg), 1) / prob.getL();
         }
 
         switch (solver_type) {
@@ -2310,12 +2327,12 @@ public class Linear {
                 break;
             }
             case L1R_L2LOSS_SVC: {
-                Problem prob_col = transpose(prob);
+                Problem<? extends ArrayList<FeatureVector>> prob_col = transpose(prob);
                 solve_l1r_l2_svc(prob_col, param, w, Cp, Cn, primal_solver_tol, param.max_iters);
                 break;
             }
             case L1R_LR: {
-                Problem prob_col = transpose(prob);
+                Problem<? extends ArrayList<FeatureVector>> prob_col = transpose(prob);
                 solve_l1r_lr(prob_col, param, w, Cp, Cn, primal_solver_tol, param.max_iters);
                 break;
             }
@@ -2364,9 +2381,9 @@ public class Linear {
         int i;
         double xTx, max_xTx;
         max_xTx = 0;
-        for (i = 0; i < prob.l; i++) {
+        for (i = 0; i < prob.getL(); i++) {
             xTx = 0;
-            for (Feature xi : prob.x[i]) {
+            for (Feature xi : prob.getX(i)) {
                 double val = xi.getValue();
                 xTx += val * val;
             }
@@ -2376,15 +2393,15 @@ public class Linear {
 
         double min_C = 1.0;
         if (param.getSolverType() == L2R_LR)
-            min_C = 1.0 / (prob.l * max_xTx);
+            min_C = 1.0 / (prob.getL() * max_xTx);
         else if (param.getSolverType() == L2R_L2LOSS_SVC)
-            min_C = 1.0 / (2 * prob.l * max_xTx);
+            min_C = 1.0 / (2 * prob.getL() * max_xTx);
         else if (param.getSolverType() == L2R_L2LOSS_SVR) {
             double sum_y, loss, y_abs;
             double delta2 = 0.1;
             sum_y = 0;
             loss = 0;
-            for (i = 0; i < prob.l; i++) {
+            for (i = 0; i < prob.getL(); i++) {
                 y_abs = Math.abs(prob.y[i]);
                 sum_y += y_abs;
                 loss += Math.max(y_abs - param.p, 0.0) * Math.max(y_abs - param.p, 0.0);
@@ -2401,19 +2418,20 @@ public class Linear {
     private static double calc_max_p(Problem prob) {
         int i;
         double max_p = 0.0;
-        for (i = 0; i < prob.l; i++)
+        for (i = 0; i < prob.getL(); i++)
             max_p = Math.max(max_p, Math.abs(prob.y[i]));
 
         return max_p;
     }
 
-    public static ParameterCSearchResult find_parameter_C(Problem prob, Parameter param_tmp, double start_C, double max_C, int[] fold_start, int[] perm,
-        Problem[] subprob, int nr_fold) {
+    public static ParameterCSearchResult find_parameter_C(Problem<? extends ArrayList<FeatureVector>> prob,
+                                                          Parameter param_tmp, double start_C, double max_C, int[] fold_start, int[] perm,
+        Problem[] subprob, int nr_fold) throws IllegalAccessException, InstantiationException {
         double best_C;
         double best_score = Double.NaN;
         // variables for CV
         int i;
-        double[] target = new double[prob.l];
+        double[] target = new double[prob.getL()];
 
         // variables for warm start
         double ratio = 2;
@@ -2468,16 +2486,16 @@ public class Linear {
                 }
 
                 for (j = begin; j < end; j++)
-                    target[perm[j]] = predict(submodel, prob.x[perm[j]]);
+                    target[perm[j]] = predict(submodel, prob.getX(perm[j]));
             }
             setDebugOutput(default_print_string);
 
             if (param_tmp.getSolverType() == L2R_LR || param_tmp.getSolverType() == L2R_L2LOSS_SVC) {
                 int total_correct = 0;
-                for (i = 0; i < prob.l; i++)
+                for (i = 0; i < prob.getL(); i++)
                     if (target[i] == prob.y[i])
                         ++total_correct;
-                double current_rate = (double)total_correct / prob.l;
+                double current_rate = (double)total_correct / prob.getL();
                 if (current_rate > best_score) {
                     best_C = param_tmp.C;
                     best_score = current_rate;
@@ -2486,12 +2504,12 @@ public class Linear {
                 info("log2c=%7.2f\trate=%g%n", Math.log(param_tmp.C) / Math.log(2.0), 100.0 * current_rate);
             } else if (param_tmp.getSolverType() == L2R_L2LOSS_SVR) {
                 double total_error = 0.0;
-                for (i = 0; i < prob.l; i++) {
+                for (i = 0; i < prob.getL(); i++) {
                     double y = prob.y[i];
                     double v = target[i];
                     total_error += (v - y) * (v - y);
                 }
-                double current_error = total_error / prob.l;
+                double current_error = total_error / prob.getL();
                 if (current_error < best_score) {
                     best_C = param_tmp.C;
                     best_score = current_error;
