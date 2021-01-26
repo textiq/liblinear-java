@@ -86,7 +86,7 @@ public class Problem<T extends ListFactory> implements AutoCloseable {
         return l;
     }
 
-    public ListFactory getListFactory() {
+    public T getListFactory() {
         return listFactory;
     }
 

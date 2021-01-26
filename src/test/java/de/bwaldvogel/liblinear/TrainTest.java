@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -150,15 +151,18 @@ class TrainTest {
         Train train = new Train();
         train.readProblem(new MemoryListFactory(), problemPath);
 
-        try (Problem prob = train.getProblem()) {
+        try (Problem<MemoryListFactory> prob = train.getProblem()) {
             assertThat(prob.bias).isEqualTo(1);
             assertThat(prob.y).hasSize(lines.size());
             assertThat(prob.y).isEqualTo(new double[]{1, 2, 1, 1, 2});
             assertThat(prob.n).isEqualTo(8);
             assertThat(prob.getL()).isEqualTo(prob.y.length);
-            //TODO: fix
-            //assertThat(prob.x.length).isEqualTo(prob.y.length);
 
+            AtomicInteger items = new AtomicInteger(0);
+            prob.getXIterator().forEachRemaining(x -> {
+                items.incrementAndGet();
+            });
+            assertThat(items.get()).isEqualTo(prob.y.length);
             validate(prob);
         }
     }
@@ -179,9 +183,11 @@ class TrainTest {
         assertThat(prob.y).isEqualTo(new double[]{1, 2, 1, 1, 2});
         assertThat(prob.n).isEqualTo(8);
         assertThat(prob.getL()).isEqualTo(prob.y.length);
-        //TODO: fix
-        //assertThat(prob.x.length).isEqualTo(prob.y.length);
-
+        AtomicInteger items = new AtomicInteger(0);
+        prob.getXIterator().forEachRemaining(x -> {
+            items.incrementAndGet();
+        });
+        assertThat(items.get()).isEqualTo(prob.y.length);
         validate(prob);
     }
 

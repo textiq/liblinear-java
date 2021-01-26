@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.assertj.core.data.Offset;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -658,9 +659,9 @@ class LinearTest {
      * res prob.l = 3 * res prob.n = 4 0: (1,2) (2,9) 1: (2,7) (3,1) 2: (1,1) (2,3) 3: (1,3) (2,3)
      */
     @Test
-    void testTranspose3() throws Exception {
-        Problem prob = new Problem(new MemoryListFactory(), 4);
-        prob.setL(4);
+    void testTranspose3() {
+        Problem<MemoryListFactory> prob = new Problem<>(new MemoryListFactory(), 4);
+        prob.setL(3);
         prob.n = 4;
         prob.y = new double[4];
         prob.setX(0, new FeatureNode[3]);
@@ -680,9 +681,13 @@ class LinearTest {
 
         prob.getX(3)[0] = new FeatureNode(3, 2);
 
-        Problem transposed = Linear.transpose(prob);
-        //TODO: fix
-        //assertThat(transposed.x).hasDimensions(4, 2);
+        Problem<MemoryListFactory> transposed = Linear.transpose(prob);
+        AtomicInteger items = new AtomicInteger(0);
+        transposed.getXIterator().forEachRemaining(x -> {
+            assertThat(x.getFeatures().length).isEqualTo(2);
+            items.incrementAndGet();
+        });
+        assertThat(items.get()).isEqualTo(4);
 
         assertThat(transposed.getX(0)[0]).isEqualTo(new FeatureNode(1, 2));
         assertThat(transposed.getX(0)[1]).isEqualTo(new FeatureNode(2, 9));

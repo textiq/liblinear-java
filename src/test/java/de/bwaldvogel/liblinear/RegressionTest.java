@@ -1,7 +1,12 @@
 package de.bwaldvogel.liblinear;
 
-import static de.bwaldvogel.liblinear.SolverType.*;
-import static org.assertj.core.api.Assertions.*;
+import static de.bwaldvogel.liblinear.SolverType.L1R_L2LOSS_SVC;
+import static de.bwaldvogel.liblinear.SolverType.L1R_LR;
+import static de.bwaldvogel.liblinear.SolverType.L2R_L2LOSS_SVC;
+import static de.bwaldvogel.liblinear.SolverType.L2R_L2LOSS_SVR;
+import static de.bwaldvogel.liblinear.SolverType.L2R_LR;
+import static de.bwaldvogel.liblinear.SolverType.ONECLASS_SVM;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -17,7 +22,6 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
 import org.assertj.core.data.Offset;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -31,25 +35,28 @@ class RegressionTest {
     private static final Logger log = LoggerFactory.getLogger(RegressionTest.class);
 
     protected static final List<SolverType> SOLVERS = Stream.of(SolverType.values())
-        .filter(solver -> !solver.isOneClass())
-        .collect(Collectors.toList());
+          .filter(solver -> !solver.isOneClass())
+          .collect(Collectors.toList());
 
     private static Collection<TestParams> data() {
         List<TestParams> params = new ArrayList<>();
-        for (String dataset : new String[] {"splice", "dna.scale"}) {
+        for (String dataset : new String[]{"splice", "dna.scale"}) {
             for (SolverType solverType : SOLVERS) {
-                for (int bias : new int[] {-1, 1}) {
-                    for (boolean regularizeBias : new boolean[] {false, true}) {
+                for (int bias : new int[]{-1, 1}) {
+                    for (boolean regularizeBias : new boolean[]{false, true}) {
                         if (!regularizeBias && bias != 1) {
                             continue;
                         }
                         if (!regularizeBias) {
-                            // -R option supported only for solver L2R_LR, L2R_L2LOSS_SVC, L1R_L2LOSS_SVC, L1R_LR, and L2R_L2LOSS_SVR
-                            if (!EnumSet.of(L2R_LR, L2R_L2LOSS_SVC, L1R_L2LOSS_SVC, L1R_LR, L2R_L2LOSS_SVR).contains(solverType)) {
+                            // -R option supported only for solver L2R_LR, L2R_L2LOSS_SVC, L1R_L2LOSS_SVC, L1R_LR,
+                            // and L2R_L2LOSS_SVR
+                            if (!EnumSet.of(L2R_LR, L2R_L2LOSS_SVC, L1R_L2LOSS_SVC, L1R_LR, L2R_L2LOSS_SVR)
+                                  .contains(solverType)) {
                                 continue;
                             }
                         }
-                        params.add(new TestParams(dataset, solverType, bias, regularizeBias, getExpectedAccuracy(dataset, solverType, bias, regularizeBias)));
+                        params.add(new TestParams(dataset, solverType, bias, regularizeBias,
+                                                  getExpectedAccuracy(dataset, solverType, bias, regularizeBias)));
                     }
                 }
             }
@@ -186,13 +193,14 @@ class RegressionTest {
 
     private static class TestParams {
 
-        private final String     dataset;
+        private final String dataset;
         private final SolverType solverType;
-        private final int        bias;
-        private final boolean    regularizeBias;
-        private final Double     expectedAccuracy;
+        private final int bias;
+        private final boolean regularizeBias;
+        private final Double expectedAccuracy;
 
-        private TestParams(String dataset, SolverType solverType, int bias, boolean regularizeBias, Double expectedAccuracy) {
+        private TestParams(String dataset, SolverType solverType, int bias, boolean regularizeBias,
+                           Double expectedAccuracy) {
             this.dataset = dataset;
             this.solverType = solverType;
             this.bias = bias;
@@ -202,7 +210,9 @@ class RegressionTest {
 
         @Override
         public String toString() {
-            return "dataset: " + dataset + ", solver: " + solverType + ", bias: " + bias + (!regularizeBias ? " (not regularized)" : "");
+            return "dataset: " + dataset + ", solver: " + solverType + ", bias: " + bias + (!regularizeBias
+                                                                                            ? " (not regularized)"
+                                                                                            : "");
         }
     }
 
@@ -233,8 +243,11 @@ class RegressionTest {
         } else {
             expectedPredictions = Files.readAllLines(expectedFile, StandardCharsets.UTF_8);
             assertThat(expectedPredictions).hasSize(testProblem.getL());
-            //TODO: fix
-            //assertThat(testProblem.x.length).isEqualTo(expectedPredictions.size());
+            AtomicInteger items = new AtomicInteger(0);
+            testProblem.getXIterator().forEachRemaining(x -> {
+                items.incrementAndGet();
+            });
+            assertThat(items.get()).isEqualTo(expectedPredictions.size());
         }
 
         int correctPredictions = 0;
@@ -250,8 +263,8 @@ class RegressionTest {
             }
 
             if (params.expectedAccuracy != null) {
-                int expectation = (int)testProblem.y[i];
-                int actual = (int)prediction;
+                int expectation = (int) testProblem.y[i];
+                int actual = (int) prediction;
                 if (actual == expectation) {
                     correctPredictions++;
                 }
@@ -263,11 +276,12 @@ class RegressionTest {
                     line = predictedValues[0] + "\n";
                 } else {
                     line = Arrays.stream(predictedValues)
-                        .mapToObj(Double::toString)
-                        .collect(Collectors.joining(" ")) + " \n";
+                                 .mapToObj(Double::toString)
+                                 .collect(Collectors.joining(" ")) + " \n";
                 }
                 Files.createDirectories(expectedFile.getParent());
-                Files.write(expectedFile, line.getBytes(StandardCharsets.UTF_8), StandardOpenOption.APPEND, StandardOpenOption.CREATE);
+                Files.write(expectedFile, line.getBytes(StandardCharsets.UTF_8), StandardOpenOption.APPEND,
+                            StandardOpenOption.CREATE);
                 continue;
             }
 
@@ -286,7 +300,7 @@ class RegressionTest {
         }
 
         if (params.expectedAccuracy != null) {
-            double accuracy = correctPredictions / (double)testProblem.getL();
+            double accuracy = correctPredictions / (double) testProblem.getL();
             assertThat(accuracy).isEqualTo(params.expectedAccuracy.doubleValue(), Offset.offset(1e-4));
         }
     }
@@ -306,7 +320,8 @@ class RegressionTest {
             } else {
                 targetFile = spliceClass2;
             }
-            Files.write(targetFile, Arrays.asList(line), StandardCharsets.UTF_8, StandardOpenOption.APPEND, StandardOpenOption.CREATE);
+            Files.write(targetFile, Arrays.asList(line), StandardCharsets.UTF_8, StandardOpenOption.APPEND,
+                        StandardOpenOption.CREATE);
         }
 
         Problem problem1 = Train.readProblem(new MemoryListFactory(), spliceClass1, StandardCharsets.UTF_8, -1);
@@ -327,21 +342,21 @@ class RegressionTest {
     private static double calculatePredictionAccuracy(Model model,
                                                       Problem<? extends ListFactory> problem) {
         AtomicInteger correct = new AtomicInteger(0);
-        problem.getXIterator().forEachRemaining(vector->{
+        problem.getXIterator().forEachRemaining(vector -> {
             double prediction = Linear.predict(model, vector.getFeatures());
             if (prediction == problem.y[0]) {
                 correct.incrementAndGet();
             }
         });
 
-        return (double)correct.get() / problem.getL();
+        return (double) correct.get() / problem.getL();
     }
 
     private List<Double> parseExpectedValues(List<String> expectedPredictions, int i) {
         return Stream.of(expectedPredictions.get(i)
-            .split(" "))
-            .map(Double::parseDouble)
-            .collect(Collectors.toList());
+                               .split(" "))
+              .map(Double::parseDouble)
+              .collect(Collectors.toList());
     }
 
 }
