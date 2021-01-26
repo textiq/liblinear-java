@@ -49,7 +49,7 @@ class SolverMCSVM_CS {
 
     public SolverMCSVM_CS(Problem prob, int nr_class, double[] weighted_C, double eps, int max_iter) {
         this.w_size = prob.n;
-        this.l = prob.l;
+        this.l = prob.getL();
         this.nr_class = nr_class;
         this.eps = eps;
         this.max_iter = max_iter;
@@ -102,7 +102,7 @@ class SolverMCSVM_CS {
             for (m = 0; m < nr_class; m++)
                 alpha_index[i * nr_class + m] = m;
             QD[i] = 0;
-            for (Feature xi : prob.x[i]) {
+            for (Feature xi : prob.getX(i)) {
                 double val = xi.getValue();
                 QD[i] += val * val;
 
@@ -142,7 +142,7 @@ class SolverMCSVM_CS {
                     if (y_index[i] < active_size_i[i])
                         G[y_index[i]] = 0;
 
-                    for (Feature xi : prob.x[i]) {
+                    for (Feature xi : prob.getX(i)) {
                         // double *w_i = &w[(xi.index-1)*nr_class];
                         int w_offset = (xi.getIndex() - 1) * nr_class;
                         for (m = 0; m < active_size_i[i]; m++)
@@ -210,7 +210,7 @@ class SolverMCSVM_CS {
                         }
                     }
 
-                    for (Feature xi : prob.x[i]) {
+                    for (Feature xi : prob.getX(i)) {
                         // double *w_i = &w[(xi->index-1)*nr_class];
                         int w_offset = (xi.getIndex() - 1) * nr_class;
                         for (m = 0; m < nz_d; m++) {
